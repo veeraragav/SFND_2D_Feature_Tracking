@@ -34,7 +34,9 @@ int main(int argc, const char *argv[])
     int imgStartIndex = 0; // first file index to load (assumes Lidar and camera names have identical naming convention)
     int imgEndIndex = 9;   // last file index to load
     int imgFillWidth = 4;  // no. of digits which make up the file index (e.g. img-0001.png)
-
+    ofstream file;
+    file.open("SIFT_AKAZE.csv");
+    file<<"Image,Keypoint_detection_time,No_of_Kpts,Descriptor_extraction_time,No_of_matched_Kpts"<<std::endl;
     // misc
     int dataBufferSize = 2;       // no. of images which are held in memory (ring buffer) at the same time
     boost::circular_buffer<DataFrame> dataBuffer(2); // list of data frames which are held in memory at the same time
@@ -58,7 +60,7 @@ int main(int argc, const char *argv[])
 
         //// STUDENT ASSIGNMENT
         //// TASK MP.1 -> replace the following code with ring buffer of size dataBufferSize
-
+        file<<imgIndex<<",";
         // push image into data frame buffer
         DataFrame frame;
         frame.cameraImg = imgGray;
@@ -71,23 +73,23 @@ int main(int argc, const char *argv[])
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        string detectorType = "HARRIS";
-
+        string detectorType = "SIFT";
+        
         //// STUDENT ASSIGNMENT
         //// TASK MP.2 -> add the following keypoint detectors in file matching2D.cpp and enable string-based selection based on detectorType
-        //// -> HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
+        //// -> HARRIS, SHITOMASI, FAST, BRISK, ORB, AKAZE, SIFT
 
         if (detectorType.compare("SHITOMASI") == 0)
         {
-            detKeypointsShiTomasi(keypoints, imgGray, true);
+            detKeypointsShiTomasi(keypoints, imgGray, file, true);
         }
         else if (detectorType.compare("HARRIS") == 0)
         {
-            detKeypointsHarris(keypoints, imgGray, true);
+            detKeypointsHarris(keypoints, imgGray,file, true);
         }
         else 
         {
-            detKeypointsModern(keypoints, imgGray, detectorType, true);
+            detKeypointsModern(keypoints, imgGray, detectorType, file, true);
         }
 
         //// EOF STUDENT ASSIGNMENT
@@ -109,7 +111,7 @@ int main(int argc, const char *argv[])
         }
         //counting no. of keypoints on the preceeding vehicle
         std::cout<<"Kepoints on the preceedind vehicle: "<<keypoints.size()<<std::endl;
-        
+        file<<keypoints.size()<<",";
 
         //// EOF STUDENT ASSIGNMENT
 
@@ -138,8 +140,8 @@ int main(int argc, const char *argv[])
         //// -> BRIEF, ORB, FREAK, AKAZE, SIFT
 
         cv::Mat descriptors;
-        string descriptorType = "ORB"; // BRIEF, ORB, FREAK, AKAZE, SIFT
-        descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
+        string descriptorType = "AKAZE"; // BRIEF, ORB, FREAK, AKAZE, SIFT
+        descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType, file);
         //// EOF STUDENT ASSIGNMENT
 
         // push descriptors for current frame to end of data buffer
@@ -150,12 +152,12 @@ int main(int argc, const char *argv[])
         if (dataBuffer.size() > 1) // wait until at least two images have been processed
         {
 
-            /* MATCH KEYPOINT DESCRIPTORS */
+            /* MATCHDES_HOG KEYPOINT DESCRIPTORS */
 
             vector<cv::DMatch> matches;
             string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
             string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-            string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
+            string selectorType = "SEL_KNN";       // SEL_NN, SEL_KNN
 
             //// STUDENT ASSIGNMENT
             //// TASK MP.5 -> add FLANN matching in file matching2D.cpp
@@ -164,7 +166,9 @@ int main(int argc, const char *argv[])
             matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
                              (dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
                              matches, descriptorType, matcherType, selectorType);
-
+            
+            std::cout<<"No. of matched Descriptors: "<< matches.size()<<std::endl;
+            file<<matches.size()<<std::endl;
             //// EOF STUDENT ASSIGNMENT
 
             // store matches in current data frame
@@ -191,6 +195,11 @@ int main(int argc, const char *argv[])
             }
             bVis = false;
         }
+        else
+        {
+            file<<std::endl;
+        }
+        
 
     } // eof loop over all images
 
